@@ -1,4 +1,8 @@
+# ✅ Corrected and Enhanced Version of All Pages
+
+# ===============================
 # page1_login.py
+# ===============================
 import streamlit as st
 
 st.set_page_config(page_title="Dental Cavity App", layout="centered")
@@ -22,7 +26,9 @@ with col2:
         st.switch_page("page2_patient_upload.py")
 
 
+# ===============================
 # page2_patient_upload.py
+# ===============================
 import streamlit as st
 import os
 from datetime import datetime
@@ -31,28 +37,26 @@ from PIL import Image
 st.set_page_config(page_title="Patient Upload", layout="centered")
 st.title("📝 Patient Information & Upload")
 
-if "patient_name" not in st.session_state:
-    st.session_state.patient_name = ""
-
-name = st.text_input("👤 Name", key="name")
-contact = st.text_input("📱 Contact Number", key="contact")
+name = st.text_input("👤 Name")
+contact = st.text_input("📱 Contact Number")
 lang = st.selectbox("🌐 Choose Language", ["en", "ta", "hi"])
 st.session_state.language = lang
 
-image = st.file_uploader("📤 Upload Dental X-ray", type=["jpg", "jpeg", "png"])
+image = st.file_uploader("📄 Upload Dental X-ray", type=["jpg", "jpeg", "png"])
 
 if st.button("➡️ Submit and Diagnose") and name and contact and image:
     dt_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     filename_base = f"{name}_{dt_str.replace(':', '-').replace(' ', '_')}"
+
     os.makedirs("patient_images", exist_ok=True)
     image_path = os.path.join("patient_images", f"{filename_base}.jpg")
     Image.open(image).save(image_path)
-    
-    # Save record placeholder
+
     os.makedirs("patient_records", exist_ok=True)
-    with open(os.path.join("patient_records", f"{filename_base}.csv"), "w") as f:
-        f.write("Name,Contact,Datetime,ImagePath\n")
-        f.write(f"{name},{contact},{dt_str},{image_path}\n")
+    record_path = os.path.join("patient_records", f"{filename_base}.csv")
+    with open(record_path, "w") as f:
+        f.write("Name,Contact,Datetime,ImagePath,Diagnosis\n")  # Diagnosis will be added later
+        f.write(f"{name},{contact},{dt_str},{image_path},Pending\n")
 
     st.session_state.patient_name = name
     st.session_state.image_path = image_path
@@ -60,7 +64,9 @@ if st.button("➡️ Submit and Diagnose") and name and contact and image:
     st.switch_page("page3_patient_result.py")
 
 
+# ===============================
 # page3_patient_result.py
+# ===============================
 import streamlit as st
 from gtts import gTTS
 import base64
@@ -69,6 +75,7 @@ import os
 import tempfile
 import requests
 import smtplib
+import pandas as pd
 from email.message import EmailMessage
 
 st.set_page_config(page_title="Diagnosis Result", layout="centered")
@@ -78,7 +85,7 @@ MODEL_ID = "cavity-73rfa/3"
 API_KEY = "byOqF4HnykvCt2y074mI"
 API_URL = "https://detect.roboflow.com"
 EMAIL_SENDER = "kamarajengg.edu.in@gmail.com"
-EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
+EMAIL_PASSWORD = st.secrets["vwvcwsfffbrvumzh"]
 
 image_path = st.session_state.image_path
 name = st.session_state.patient_name
@@ -92,18 +99,17 @@ with open(image_path, "rb") as f:
         files={"file": f},
         data={"name": "image"}
     )
-result = response.json()
 
+result = response.json()
 draw = ImageDraw.Draw(img)
 cavity_found = False
+
 for pred in result.get("predictions", []):
     x, y, w, h = pred['x'], pred['y'], pred['width'], pred['height']
     if "cavity" in pred['class'].lower():
         cavity_found = True
-    left = x - w / 2
-    top = y - h / 2
-    right = x + w / 2
-    bottom = y + h / 2
+    left, top = x - w / 2, y - h / 2
+    right, bottom = x + w / 2, y + h / 2
     draw.rectangle([left, top, right, bottom], outline="red", width=3)
     draw.text((left, top - 10), f"{pred['class']} ({pred['confidence']:.2f})", fill="red")
 
@@ -111,12 +117,17 @@ st.image(img, caption="AI Prediction Result", use_container_width=True)
 diagnosis = "Cavity Detected" if cavity_found else "No Cavity Detected"
 st.success(f"🩺 Diagnosis: {diagnosis}")
 
-if language == "ta":
-    speak_text = "கறைகள் கண்டறியப்பட்டுள்ளது" if cavity_found else "பல்லில் கறை இல்லை"
-elif language == "hi":
-    speak_text = "दाँत में कैविटी मिली है" if cavity_found else "कोई कैविटी नहीं पाई गई"
-else:
-    speak_text = diagnosis
+# Update diagnosis in record
+record_file = os.path.join("patient_records", f"{name}_{timestamp.replace(':', '-').replace(' ', '_')}.csv")
+if os.path.exists(record_file):
+    df = pd.read_csv(record_file)
+    df.loc[0, 'Diagnosis'] = diagnosis
+    df.to_csv(record_file, index=False)
+
+speak_text = {
+    "ta": "கறைகள் கண்டறியப்பட்டுள்ளது" if cavity_found else "பல்லில் கறை இல்லை",
+    "hi": "दाँत में कैविटी मिली है" if cavity_found else "कोई कैविटी नहीं पाई गई",
+}.get(language, diagnosis)
 
 tts = gTTS(speak_text, lang=language)
 temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
@@ -128,7 +139,6 @@ st.markdown(f"""
 </audio>
 """, unsafe_allow_html=True)
 
-st.markdown("---")
 email_to = st.text_input("📧 Send diagnosis via email (optional):")
 if st.button("Send Email") and email_to:
     try:
@@ -146,7 +156,10 @@ if st.button("Send Email") and email_to:
     except Exception as e:
         st.error(f"Email failed: {e}")
 
+
+# ===============================
 # page4_doctor_dashboard.py
+# ===============================
 import streamlit as st
 import os
 import pandas as pd
@@ -158,9 +171,8 @@ from email.message import EmailMessage
 import zipfile
 import io
 
-# Secure credentials using st.secrets
 EMAIL_SENDER = "kamarajengg.edu.in@gmail.com"
-EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
+EMAIL_PASSWORD = st.secrets["vwvcwsfffbrvumzh"]
 
 st.set_page_config(page_title="Doctor Dashboard", layout="wide")
 st.title("🦷 Doctor Dashboard – Cavity Detection Reports")
@@ -169,39 +181,25 @@ record_dir = "patient_records"
 image_dir = "patient_images"
 
 if not os.path.exists(record_dir):
-    st.warning(f"'{record_dir}' directory not found. Please make sure patient records are saved there.")
+    st.warning("No patient record directory found.")
     st.stop()
-
-if "doctor_logged_in" not in st.session_state:
-    st.session_state.doctor_logged_in = True
 
 if st.button("🔒 Logout"):
-    st.session_state.doctor_logged_in = False
     st.switch_page("page1_login.py")
 
-if not st.session_state.doctor_logged_in:
-    st.warning("You have been logged out.")
-    st.stop()
-
 patient_files = [f for f in os.listdir(record_dir) if f.endswith(".csv")]
-
 if not patient_files:
-    st.info("No patient records found yet.")
+    st.info("No patient records yet.")
     st.stop()
 
 all_records = []
 for file in patient_files:
-    path = os.path.join(record_dir, file)
     try:
-        df = pd.read_csv(path)
+        df = pd.read_csv(os.path.join(record_dir, file))
         df["source_file"] = file
         all_records.append(df)
     except Exception as e:
         st.error(f"Error reading {file}: {e}")
-
-if not all_records:
-    st.info("No valid records to display.")
-    st.stop()
 
 records_df = pd.concat(all_records, ignore_index=True)
 
@@ -223,22 +221,16 @@ st.dataframe(records_df, use_container_width=True)
 csv = records_df.to_csv(index=False).encode('utf-8')
 st.download_button("Download Filtered Records", csv, "filtered_records.csv", "text/csv")
 
-st.markdown("---")
 if os.path.exists(image_dir):
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w") as zip_file:
-        for filename in os.listdir(image_dir):
-            filepath = os.path.join(image_dir, filename)
-            zip_file.write(filepath, arcname=filename)
+        for f in os.listdir(image_dir):
+            zip_file.write(os.path.join(image_dir, f), arcname=f)
     st.download_button("📆 Download All Patient Images (ZIP)", zip_buffer.getvalue(), "all_patient_images.zip", "application/zip")
 
-st.markdown("---")
 st.subheader("📈 Diagnosis Summary")
 st.metric("Total Patients", len(records_df))
 st.metric("Cavity Cases", (records_df['Diagnosis'] == 'Cavity Detected').sum())
-
-st.markdown("---")
-st.subheader("🖼 View Patient Images and Email")
 
 for i, row in records_df.iterrows():
     name = row['Name']
