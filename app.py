@@ -19,6 +19,8 @@ st.set_page_config(page_title="Dental Cavity App", layout="centered")
 
 if "page" not in st.session_state:
     st.session_state.page = "login"
+if "doctor_authenticated" not in st.session_state:
+    st.session_state.doctor_authenticated = False
 
 # ================= Page 1: Login =================
 def page_login():
@@ -32,12 +34,27 @@ def page_login():
     col1, col2 = st.columns(2)
     with col1:
         if st.button("👨‍⚕️ Doctor"):
-            st.session_state.page = "doctor"
+            st.session_state.page = "doctor_login"
             st.rerun()
     with col2:
         if st.button("🧑‍ Patient"):
             st.session_state.page = "patient"
             st.rerun()
+
+# ================= Doctor Login =================
+def page_doctor_login():
+    st.subheader("🔒 Doctor Login")
+    password = st.text_input("Enter Password", type="password")
+    if st.button("Login"):
+        if password == "admin123":  # Replace with a secure check in production
+            st.session_state.doctor_authenticated = True
+            st.session_state.page = "doctor"
+            st.rerun()
+        else:
+            st.error("❌ Incorrect password")
+    if st.button("⬅️ Back"):
+        st.session_state.page = "login"
+        st.rerun()
 
 # ================= Page 2: Patient Upload =================
 def page_patient_upload():
@@ -235,10 +252,17 @@ def page_doctor():
 # ================= Main Dispatcher =================
 if st.session_state.page == "login":
     page_login()
+elif st.session_state.page == "doctor_login":
+    page_doctor_login()
 elif st.session_state.page == "patient":
     page_patient_upload()
 elif st.session_state.page == "result":
     page_result()
 elif st.session_state.page == "doctor":
-    page_doctor()
+    if st.session_state.doctor_authenticated:
+        page_doctor()
+    else:
+        st.session_state.page = "doctor_login"
+        st.rerun()
+
 
