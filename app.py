@@ -40,127 +40,140 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ========== LOGIN ==========
+# ========== SESSION STATE INIT ==========
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+if "doctor_name" not in st.session_state:
+    st.session_state.doctor_name = ""
+if "active_patient" not in st.session_state:
+    st.session_state.active_patient = ""
 
-if not st.session_state.authenticated:
-    st.markdown("<h2>🔒 Doctor Login</h2>", unsafe_allow_html=True)
+# ========== ROLE SELECTION ==========
+st.title("🦷 Dental Cavity Checker")
+role = st.radio("Who are you?", ["Patient", "Doctor"])
+
+if role == "Doctor":
+    st.markdown("<h2>🔐 Doctor Login</h2>", unsafe_allow_html=True)
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
     if st.button("Login"):
         if password == PASSWORD:
             st.session_state.authenticated = True
+            st.session_state.doctor_name = username
             st.success("✅ Login successful")
             st.experimental_rerun()
         else:
             st.error("❌ Invalid credentials")
-else:
-    # ========== NAVIGATION ==========
-    page = st.sidebar.selectbox("Navigate", ["Patient Diagnosis", "📁 Admin Dashboard"])
 
-    if page == "Patient Diagnosis":
-        # === Patient Info ===
-        st.header("📋 Patient Information")
-        col1, col2 = st.columns(2)
-        with col1:
-            name = st.text_input("Patient Name")
-        with col2:
-            contact = st.text_input("Contact Number")
+elif role == "Patient":
+    if st.session_state.authenticated and st.session_state.active_patient == "":
+        st.session_state.authenticated = False
+        st.session_state.doctor_name = ""
 
-        language = st.selectbox("🗣️ Choose Language for TTS", ["en", "ta", "hi"])
-        email_to = st.text_input("Send Report to Email (Optional)")
+    st.header("📋 Patient Information")
+    col1, col2 = st.columns(2)
+    with col1:
+        name = st.text_input("Patient Name")
+    with col2:
+        contact = st.text_input("Contact Number")
 
-        # === Image Upload ===
-        st.header("📄 Upload Dental X-ray")
-        uploaded_file = st.file_uploader("Choose an image (JPG/PNG)", type=["jpg", "jpeg", "png"])
+    st.session_state.active_patient = name
 
-        if uploaded_file and name and contact:
-            st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
-            with st.spinner("Analyzing with AI..."):
-                img_path = "temp_image.jpg"
-                with open(img_path, "wb") as f:
-                    f.write(uploaded_file.read())
+    language = st.selectbox("🗣️ Choose Language for TTS", ["en", "ta", "hi"])
+    email_to = st.text_input("Send Report to Email (Optional)")
 
-                image = Image.open(img_path).convert("RGB")
-                buffered = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-                image.save(buffered.name)
+    st.header("📄 Upload Dental X-ray")
+    uploaded_file = st.file_uploader("Choose an image (JPG/PNG)", type=["jpg", "jpeg", "png"])
 
-                with open(buffered.name, "rb") as f:
-                    response = requests.post(
-                        f"{API_URL}/{MODEL_ID}?api_key={API_KEY}",
-                        files={"file": f},
-                        data={"name": "image"}
-                    )
-                    result = response.json()
+    if uploaded_file and name and contact:
+        st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+        with st.spinner("Analyzing with AI..."):
+            img_path = "temp_image.jpg"
+            with open(img_path, "wb") as f:
+                f.write(uploaded_file.read())
 
-                draw = ImageDraw.Draw(image)
-                cavity_found = False
+            image = Image.open(img_path).convert("RGB")
+            buffered = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+            image.save(buffered.name)
 
-                for pred in result.get('predictions', []):
-                    x, y, w, h = pred['x'], pred['y'], pred['width'], pred['height']
-                    class_name = pred['class']
-                    conf = pred['confidence']
+            with open(buffered.name, "rb") as f:
+                response = requests.post(
+                    f"{API_URL}/{MODEL_ID}?api_key={API_KEY}",
+                    files={"file": f},
+                    data={"name": "image"}
+                )
+                result = response.json()
 
-                    if "cavity" in class_name.lower():
-                        cavity_found = True
+            draw = ImageDraw.Draw(image)
+            cavity_found = False
 
-                    left = x - w / 2
-                    top = y - h / 2
-                    right = x + w / 2
-                    bottom = y + h / 2
+            for pred in result.get('predictions', []):
+                x, y, w, h = pred['x'], pred['y'], pred['width'], pred['height']
+                class_name = pred['class']
+                conf = pred['confidence']
 
-                    draw.rectangle([left, top, right, bottom], outline="red", width=3)
-                    draw.text((left, top - 10), f"{class_name} ({conf:.2f})", fill="red")
+                if "cavity" in class_name.lower():
+                    cavity_found = True
 
-                st.success("✅ Analysis Complete")
-                st.image(image, caption="Prediction Output", use_column_width=True)
+                left = x - w / 2
+                top = y - h / 2
+                right = x + w / 2
+                bottom = y + h / 2
 
-                diagnosis = "Cavity Detected" if cavity_found else "No Cavity Detected"
-                st.subheader(f"🧪 Diagnosis: {diagnosis}")
+                draw.rectangle([left, top, right, bottom], outline="red", width=3)
+                draw.text((left, top - 10), f"{class_name} ({conf:.2f})", fill="red")
 
-                # 🔊 Audio announcement
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tf:
-                    tts = gTTS(text=f"Diagnosis is: {diagnosis}", lang=language)
-                    tts.save(tf.name)
-                    st.audio(tf.name, format='audio/mp3')
+            st.success("✅ Analysis Complete")
+            st.image(image, caption="Prediction Output", use_column_width=True)
 
-                # 💾 Save to CSV
-                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                new_row = pd.DataFrame([{
-                    "Name": name,
-                    "Contact": contact,
-                    "Datetime": timestamp,
-                    "Diagnosis": diagnosis
-                }])
+            diagnosis = "Cavity Detected" if cavity_found else "No Cavity Detected"
+            st.subheader(f"🧪 Diagnosis: {diagnosis}")
 
-                if os.path.exists(CSV_LOG):
-                    existing = pd.read_csv(CSV_LOG)
-                    updated = pd.concat([existing, new_row], ignore_index=True)
-                else:
-                    updated = new_row
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tf:
+                tts = gTTS(text=f"Diagnosis is: {diagnosis}", lang=language)
+                tts.save(tf.name)
+                st.audio(tf.name, format='audio/mp3')
 
-                updated.to_csv(CSV_LOG, index=False)
-                st.success("✅ Patient record saved.")
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            new_row = pd.DataFrame([{
+                "Name": name,
+                "Contact": contact,
+                "Datetime": timestamp,
+                "Diagnosis": diagnosis
+            }])
 
-                # ✉️ Email result
-                if email_to:
-                    try:
-                        msg = EmailMessage()
-                        msg["Subject"] = "Dental Cavity Diagnosis"
-                        msg["From"] = EMAIL_SENDER
-                        msg["To"] = email_to
-                        msg.set_content(f"Patient Name: {name}\nDiagnosis: {diagnosis}\nDate: {timestamp}")
+            if os.path.exists(CSV_LOG):
+                existing = pd.read_csv(CSV_LOG)
+                updated = pd.concat([existing, new_row], ignore_index=True)
+            else:
+                updated = new_row
 
-                        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-                            smtp.login(EMAIL_SENDER, EMAIL_PASSWORD)
-                            smtp.send_message(msg)
+            updated.to_csv(CSV_LOG, index=False)
+            st.success("✅ Patient record saved.")
 
-                        st.success("📧 Email sent successfully")
-                    except Exception as e:
-                        st.warning(f"Email failed: {e}")
+            if email_to:
+                try:
+                    msg = EmailMessage()
+                    msg["Subject"] = "Dental Cavity Diagnosis"
+                    msg["From"] = EMAIL_SENDER
+                    msg["To"] = email_to
+                    msg.set_content(f"Patient Name: {name}\nDiagnosis: {diagnosis}\nDate: {timestamp}")
 
-    elif page == "📁 Admin Dashboard":
+                    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                        smtp.login(EMAIL_SENDER, EMAIL_PASSWORD)
+                        smtp.send_message(msg)
+
+                    st.success("📧 Email sent successfully")
+                except Exception as e:
+                    st.warning(f"Email failed: {e}")
+
+if st.session_state.authenticated:
+    page = st.sidebar.selectbox("Navigate", ["📅 Live Dashboard", "📁 Patient Records"])
+    if page == "📅 Live Dashboard":
+        st.header(f"🔎 Live View: {st.session_state.active_patient if st.session_state.active_patient else 'Waiting for patient...'}")
+        st.info("This page can be used to observe real-time uploads from the patient's end.")
+
+    elif page == "📁 Patient Records":
         st.header("📊 Patient Records Overview")
         if os.path.exists(CSV_LOG):
             df = pd.read_csv(CSV_LOG)
@@ -178,8 +191,7 @@ else:
         else:
             st.info("No records found yet.")
 
-    st.sidebar.button("🔒 Logout", on_click=lambda: st.session_state.update({"authenticated": False}))
+    st.sidebar.button("🔒 Logout", on_click=lambda: st.session_state.update({"authenticated": False, "doctor_name": "", "active_patient": ""}))
 
-# ========== FOOTER ==========
 st.markdown("---")
 st.markdown("Built with ❤️ by Sakthi | Powered by Roboflow, Streamlit, and GPT")
