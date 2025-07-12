@@ -19,6 +19,8 @@ st.set_page_config(page_title="Dental Cavity App", layout="centered")
 
 if "page" not in st.session_state:
     st.session_state.page = "login"
+if "rerun" not in st.session_state:
+    st.session_state.rerun = False
 
 # ================= Page 1: Login =================
 def page_login():
@@ -33,11 +35,11 @@ def page_login():
     with col1:
         if st.button("👨‍⚕️ Doctor"):
             st.session_state.page = "doctor"
-            st.experimental_rerun()
+            st.session_state.rerun = True
     with col2:
         if st.button("🧑‍ Patient"):
             st.session_state.page = "patient"
-            st.experimental_rerun()
+            st.session_state.rerun = True
 
 # ================= Page 2: Patient Upload =================
 def page_patient_upload():
@@ -65,7 +67,7 @@ def page_patient_upload():
         st.session_state.image_path = image_path
         st.session_state.timestamp = dt_str
         st.session_state.page = "result"
-        st.experimental_rerun()
+        st.session_state.rerun = True
 
 # ================= Page 3: Result =================
 def page_result():
@@ -139,12 +141,10 @@ def page_result():
 
 # ================= Page 4: Doctor Dashboard =================
 def page_doctor():
-    st.set_page_config(layout="wide")
     st.title("🦷 Doctor Dashboard – Cavity Detection Reports")
-
     if st.button("🔒 Logout"):
         st.session_state.page = "login"
-        st.experimental_rerun()
+        st.session_state.rerun = True
 
     record_dir = "patient_records"
     image_dir = "patient_images"
@@ -236,3 +236,8 @@ elif st.session_state.page == "result":
     page_result()
 elif st.session_state.page == "doctor":
     page_doctor()
+
+# Safe rerun logic
+if st.session_state.rerun:
+    st.session_state.rerun = False
+    st.experimental_rerun()
