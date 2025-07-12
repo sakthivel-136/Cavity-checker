@@ -57,6 +57,7 @@ if not st.session_state.role:
 
 role = st.session_state.role
 
+# ========== DOCTOR UI ==========
 if role == "Doctor":
     if not st.session_state.authenticated:
         st.markdown("<h2>🔐 Doctor Login</h2>", unsafe_allow_html=True)
@@ -66,10 +67,36 @@ if role == "Doctor":
             if password == PASSWORD:
                 st.session_state.authenticated = True
                 st.session_state.doctor_name = username
-                st.rerun()
+                st.experimental_rerun()
             else:
                 st.error("❌ Invalid credentials")
+    else:
+        page = st.sidebar.selectbox("Navigate", ["🗕️ Live Dashboard", "📁 Patient Records"])
+        if page == "🗕️ Live Dashboard":
+            st.header(f"🔎 Live View: {st.session_state.active_patient if st.session_state.active_patient else 'Waiting for patient...'}")
+            st.info("This page can be used to observe real-time uploads from the patient's end.")
 
+        elif page == "📁 Patient Records":
+            st.header("📈 Patient Records Overview")
+            if os.path.exists(CSV_LOG):
+                df = pd.read_csv(CSV_LOG)
+                st.dataframe(df, use_container_width=True)
+
+                st.markdown("---")
+                st.subheader("📈 Diagnosis Summary")
+                st.metric("Total Patients", len(df))
+                st.metric("Cavity Cases", (df['Diagnosis'] == 'Cavity Detected').sum())
+                chart = px.histogram(df, x="Datetime", color="Diagnosis", title="🕒 Daily Case Log")
+                st.plotly_chart(chart, use_container_width=True)
+
+                csv = df.to_csv(index=False).encode()
+                st.download_button("⬇️ Download CSV", csv, "patient_records.csv", "text/csv")
+            else:
+                st.info("No records found yet.")
+
+        st.sidebar.button("🔒 Logout", on_click=lambda: st.session_state.update({"authenticated": False, "doctor_name": "", "active_patient": "", "role": None}))
+
+# ========== PATIENT UI ==========
 elif role == "Patient":
     if st.session_state.authenticated and st.session_state.active_patient == "":
         st.session_state.authenticated = False
@@ -188,31 +215,6 @@ elif role == "Patient":
                 except Exception as e:
                     st.warning(f"Email failed: {e}")
 
-if st.session_state.authenticated:
-    page = st.sidebar.selectbox("Navigate", ["📅 Live Dashboard", "📁 Patient Records"])
-    if page == "📅 Live Dashboard":
-        st.header(f"🔎 Live View: {st.session_state.active_patient if st.session_state.active_patient else 'Waiting for patient...'}")
-        st.info("This page can be used to observe real-time uploads from the patient's end.")
-
-    elif page == "📁 Patient Records":
-        st.header("📈 Patient Records Overview")
-        if os.path.exists(CSV_LOG):
-            df = pd.read_csv(CSV_LOG)
-            st.dataframe(df, use_container_width=True)
-
-            st.markdown("---")
-            st.subheader("📈 Diagnosis Summary")
-            st.metric("Total Patients", len(df))
-            st.metric("Cavity Cases", (df['Diagnosis'] == 'Cavity Detected').sum())
-            chart = px.histogram(df, x="Datetime", color="Diagnosis", title="🕒 Daily Case Log")
-            st.plotly_chart(chart, use_container_width=True)
-
-            csv = df.to_csv(index=False).encode()
-            st.download_button("⬇️ Download CSV", csv, "patient_records.csv", "text/csv")
-        else:
-            st.info("No records found yet.")
-
-    st.sidebar.button("🔒 Logout", on_click=lambda: st.session_state.update({"authenticated": False, "doctor_name": "", "active_patient": "", "role": None}))
-
 st.markdown("---")
 st.markdown("Built with ❤️ by Sakthi | Powered by Roboflow, Streamlit, and GPT")
+
