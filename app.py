@@ -3,7 +3,7 @@
 import streamlit as st
 import os
 from datetime import datetime
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, UnidentifiedImageError
 import pandas as pd
 import base64
 import tempfile
@@ -49,24 +49,30 @@ def page_patient_upload():
 
     image = st.file_uploader("📤 Upload Dental X-ray", type=["jpg", "jpeg", "png"])
     if st.button("➡️ Submit and Diagnose") and name and contact and image:
-        dt_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        filename_base = f"{name}_{dt_str.replace(':', '-').replace(' ', '_')}"
+        try:
+            dt_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            filename_base = f"{name}_{dt_str.replace(':', '-').replace(' ', '_')}"
 
-        os.makedirs("patient_images", exist_ok=True)
-        image_path = os.path.join("patient_images", f"{filename_base}.jpg")
-        Image.open(image).save(image_path)
+            os.makedirs("patient_images", exist_ok=True)
+            image_path = os.path.join("patient_images", f"{filename_base}.jpg")
+            with Image.open(image) as img:
+                rgb_img = img.convert("RGB")
+                rgb_img.save(image_path)
 
-        os.makedirs("patient_records", exist_ok=True)
-        with open(os.path.join("patient_records", f"{filename_base}.csv"), "w") as f:
-            f.write("Name,Contact,Datetime,ImagePath,Diagnosis\n")
-            f.write(f"{name},{contact},{dt_str},{image_path},Pending\n")
+            os.makedirs("patient_records", exist_ok=True)
+            with open(os.path.join("patient_records", f"{filename_base}.csv"), "w") as f:
+                f.write("Name,Contact,Datetime,ImagePath,Diagnosis\n")
+                f.write(f"{name},{contact},{dt_str},{image_path},Pending\n")
 
-        st.session_state.patient_name = name
-        st.session_state.image_path = image_path
-        st.session_state.timestamp = dt_str
-        st.session_state.page = "result"
-        st.rerun()
-
+            st.session_state.patient_name = name
+            st.session_state.image_path = image_path
+            st.session_state.timestamp = dt_str
+            st.session_state.page = "result"
+            st.rerun()
+        except UnidentifiedImageError:
+            st.error("❌ The uploaded file is not a valid image. Please upload a valid JPG or PNG file.")
+        except Exception as e:
+            st.error(f"❌ Error processing image: {e}")
 
 # ================= Page 3: Result =================
 def page_result():
@@ -235,3 +241,4 @@ elif st.session_state.page == "result":
     page_result()
 elif st.session_state.page == "doctor":
     page_doctor()
+
