@@ -1,7 +1,7 @@
 streamlit
-pillow
+Pillow
+gtts
 pandas
 plotly
-gtts
-inference-sdk
-opencv-python
+requests
+email-validator
