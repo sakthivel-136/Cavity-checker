@@ -1,5 +1,6 @@
 streamlit
-scikit-learn
+inference
 pandas
-numpy
-matplotlib
+Pillow
+gTTS
+plotly
