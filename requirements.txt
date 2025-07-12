@@ -1,6 +1,6 @@
 streamlit
-inference
 pandas
 Pillow
-gTTS
 plotly
+inference
+gTTS
