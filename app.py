@@ -47,23 +47,28 @@ if "doctor_name" not in st.session_state:
     st.session_state.doctor_name = ""
 if "active_patient" not in st.session_state:
     st.session_state.active_patient = ""
+if "role" not in st.session_state:
+    st.session_state.role = None
 
 # ========== ROLE SELECTION ==========
 st.title("🦷 Dental Cavity Checker")
-role = st.radio("Who are you?", ["Patient", "Doctor"])
+if not st.session_state.role:
+    st.session_state.role = st.radio("Who are you?", ["Patient", "Doctor"])
+
+role = st.session_state.role
 
 if role == "Doctor":
-    st.markdown("<h2>🔐 Doctor Login</h2>", unsafe_allow_html=True)
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if password == PASSWORD:
-            st.session_state.authenticated = True
-            st.session_state.doctor_name = username
-            st.success("✅ Login successful")
-            st.experimental_rerun()
-        else:
-            st.error("❌ Invalid credentials")
+    if not st.session_state.authenticated:
+        st.markdown("<h2>🔐 Doctor Login</h2>", unsafe_allow_html=True)
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        if st.button("Login"):
+            if password == PASSWORD:
+                st.session_state.authenticated = True
+                st.session_state.doctor_name = username
+                st.rerun()
+            else:
+                st.error("❌ Invalid credentials")
 
 elif role == "Patient":
     if st.session_state.authenticated and st.session_state.active_patient == "":
@@ -79,14 +84,14 @@ elif role == "Patient":
 
     st.session_state.active_patient = name
 
-    language = st.selectbox("🗣️ Choose Language for TTS", ["en", "ta", "hi"])
+    language = st.selectbox("🔤 Choose Language for TTS", ["en", "ta", "hi"])
     email_to = st.text_input("Send Report to Email (Optional)")
 
     st.header("📄 Upload Dental X-ray")
     uploaded_file = st.file_uploader("Choose an image (JPG/PNG)", type=["jpg", "jpeg", "png"])
 
     if uploaded_file and name and contact:
-        st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+        st.image(uploaded_file, caption="Uploaded Image", use_container_width=True)
         with st.spinner("Analyzing with AI..."):
             img_path = "temp_image.jpg"
             with open(img_path, "wb") as f:
@@ -124,7 +129,7 @@ elif role == "Patient":
                 draw.text((left, top - 10), f"{class_name} ({conf:.2f})", fill="red")
 
             st.success("✅ Analysis Complete")
-            st.image(image, caption="Prediction Output", use_column_width=True)
+            st.image(image, caption="Prediction Output", use_container_width=True)
 
             diagnosis = "Cavity Detected" if cavity_found else "No Cavity Detected"
             st.subheader(f"🧪 Diagnosis: {diagnosis}")
@@ -174,7 +179,7 @@ if st.session_state.authenticated:
         st.info("This page can be used to observe real-time uploads from the patient's end.")
 
     elif page == "📁 Patient Records":
-        st.header("📊 Patient Records Overview")
+        st.header("📈 Patient Records Overview")
         if os.path.exists(CSV_LOG):
             df = pd.read_csv(CSV_LOG)
             st.dataframe(df, use_container_width=True)
@@ -191,7 +196,7 @@ if st.session_state.authenticated:
         else:
             st.info("No records found yet.")
 
-    st.sidebar.button("🔒 Logout", on_click=lambda: st.session_state.update({"authenticated": False, "doctor_name": "", "active_patient": ""}))
+    st.sidebar.button("🔒 Logout", on_click=lambda: st.session_state.update({"authenticated": False, "doctor_name": "", "active_patient": "", "role": None}))
 
 st.markdown("---")
 st.markdown("Built with ❤️ by Sakthi | Powered by Roboflow, Streamlit, and GPT")
