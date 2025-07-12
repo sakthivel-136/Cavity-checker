@@ -1,6 +1,5 @@
-
+# 🦷 Dental Cavity Detection with Login, Admin Dashboard, Charts, Email, and Multi-Language TTS
 import streamlit as st
-from inference_sdk import InferenceHTTPClient
 from PIL import Image, ImageDraw
 from gtts import gTTS
 import datetime
@@ -11,11 +10,12 @@ import tempfile
 import smtplib
 from email.message import EmailMessage
 import plotly.express as px
+import requests
 
 # ========== CONFIGURATION ==========
 MODEL_ID = "cavity-73rfa/3"
 API_KEY = "byOqF4HnykvCt2y074mI"
-API_URL = "https://serverless.roboflow.com"
+API_URL = "https://detect.roboflow.com"
 CSV_LOG = "patient_records.csv"
 PASSWORD = "admin123"
 EMAIL_SENDER = "your_email@gmail.com"
@@ -72,7 +72,7 @@ else:
         email_to = st.text_input("Send Report to Email (Optional)")
 
         # === Image Upload ===
-        st.header("📤 Upload Dental X-ray")
+        st.header("📄 Upload Dental X-ray")
         uploaded_file = st.file_uploader("Choose an image (JPG/PNG)", type=["jpg", "jpeg", "png"])
 
         if uploaded_file and name and contact:
@@ -82,14 +82,22 @@ else:
                 with open(img_path, "wb") as f:
                     f.write(uploaded_file.read())
 
-                client = InferenceHTTPClient(api_url=API_URL, api_key=API_KEY)
-                result = client.infer(img_path, model_id=MODEL_ID)
-
                 image = Image.open(img_path).convert("RGB")
+                buffered = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+                image.save(buffered.name)
+
+                with open(buffered.name, "rb") as f:
+                    response = requests.post(
+                        f"{API_URL}/{MODEL_ID}?api_key={API_KEY}",
+                        files={"file": f},
+                        data={"name": "image"}
+                    )
+                    result = response.json()
+
                 draw = ImageDraw.Draw(image)
                 cavity_found = False
 
-                for pred in result['predictions']:
+                for pred in result.get('predictions', []):
                     x, y, w, h = pred['x'], pred['y'], pred['width'], pred['height']
                     class_name = pred['class']
                     conf = pred['confidence']
@@ -109,7 +117,7 @@ else:
                 st.image(image, caption="Prediction Output", use_column_width=True)
 
                 diagnosis = "Cavity Detected" if cavity_found else "No Cavity Detected"
-                st.subheader(f"🩺 Diagnosis: {diagnosis}")
+                st.subheader(f"🧪 Diagnosis: {diagnosis}")
 
                 # 🔊 Audio announcement
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tf:
