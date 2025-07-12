@@ -84,7 +84,7 @@ elif role == "Patient":
 
     st.session_state.active_patient = name
 
-    language = st.selectbox("🔤 Choose Language for TTS", ["en", "ta", "hi"])
+    language = st.selectbox("🌤 Choose Language for TTS", ["en", "ta", "hi"])
     email_to = st.text_input("Send Report to Email (Optional)")
 
     st.header("📄 Upload Dental X-ray")
@@ -134,10 +134,26 @@ elif role == "Patient":
             diagnosis = "Cavity Detected" if cavity_found else "No Cavity Detected"
             st.subheader(f"🧪 Diagnosis: {diagnosis}")
 
+            if language == "ta":
+                text_to_speak = "கறைகள் கண்டறியப்பட்டுள்ளது" if cavity_found else "பல்லில் கறை இல்லை"
+            elif language == "hi":
+                text_to_speak = "दाँत में कैविटी मिली है" if cavity_found else "कोई कैविटी नहीं पाई गई"
+            else:
+                text_to_speak = f"Diagnosis is: {diagnosis}"
+
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tf:
-                tts = gTTS(text=f"Diagnosis is: {diagnosis}", lang=language)
+                tts = gTTS(text=text_to_speak, lang=language)
                 tts.save(tf.name)
-                st.audio(tf.name, format='audio/mp3')
+
+            # Embed audio autoplay
+            audio_path = tf.name
+            audio_base64 = base64.b64encode(open(audio_path, 'rb').read()).decode()
+            audio_html = f"""
+                <audio autoplay>
+                    <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
+                </audio>
+            """
+            st.markdown(audio_html, unsafe_allow_html=True)
 
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             new_row = pd.DataFrame([{
