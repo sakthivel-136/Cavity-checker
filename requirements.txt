@@ -1,6 +1,6 @@
 streamlit
+pillow
 pandas
-Pillow
 plotly
-inference
-gTTS
+gtts
+roboflow
