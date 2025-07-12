@@ -86,7 +86,7 @@ def page_result():
     API_KEY = "byOqF4HnykvCt2y074mI"
     API_URL = "https://detect.roboflow.com"
     EMAIL_SENDER = "kamarajengg.edu.in@gmail.com"
-    EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
+    EMAIL_PASSWORD = "vwvcwsfffbrvumzh"
 
     img = Image.open(image_path).convert("RGB")
     with open(image_path, "rb") as f:
