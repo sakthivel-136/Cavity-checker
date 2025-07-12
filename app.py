@@ -17,8 +17,8 @@ API_KEY = "byOqF4HnykvCt2y074mI"
 API_URL = "https://detect.roboflow.com"
 CSV_FOLDER = "patient_records"
 PASSWORD = "admin123"
-EMAIL_SENDER = "your_email@gmail.com"
-EMAIL_PASSWORD = "your_email_password"
+EMAIL_SENDER = "kamarajengg.edu.in@gmail.com"
+SENDER_PASSWORD = "vwvcwsfffbrvumzh"
 
 # UI Config
 st.set_page_config(page_title="🦷 Dental Cavity Detector", layout="centered")
