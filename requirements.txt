@@ -3,6 +3,5 @@ pillow
 pandas
 plotly
 gtts
-roboflow
 inference-sdk
 opencv-python
