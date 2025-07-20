@@ -5,3 +5,5 @@ pandas
 plotly
 requests
 email-validator
+streamlit-drawable-canvas
+
